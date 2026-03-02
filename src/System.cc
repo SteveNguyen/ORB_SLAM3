@@ -619,9 +619,10 @@ void System::SaveTrajectoryCSV(const string &filename)
     vector<KeyFrame*> vpKFs = pBiggerMap->GetAllKeyFrames();
     sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
 
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    Sophus::SE3f Two = vpKFs[0]->GetPoseInverse();
+    // Translate so the first keyframe is at the origin, but preserve the
+    // gravity-aligned world frame orientation (no rotation applied).
+    Eigen::Vector3f origin = vpKFs[0]->GetPoseInverse().translation();
+    Sophus::SE3f Two(Eigen::Matrix3f::Identity(), -origin);
 
     // open file
     ofstream f;
