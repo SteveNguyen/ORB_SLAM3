@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-core4.5d libopencv-imgcodecs4.5d libopencv-imgproc4.5d \
     libopencv-calib3d4.5d libopencv-features2d4.5d libopencv-videoio4.5d \
     libopencv-highgui4.5d libopencv-objdetect4.5d \
+    libopencv-contrib4.5d \
     libboost-serialization1.74.0 \
     libssl3 libgomp1 \
     && rm -rf /var/lib/apt/lists/*

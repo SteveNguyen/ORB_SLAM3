@@ -199,6 +199,11 @@ public:
     float GetImageScale();
     bool isLoadingMap();
 
+    // Gravity rotation and IMU biases (valid after IMU initialization)
+    bool isImuInitialized();
+    Eigen::Matrix3d GetGravityRotation();
+    IMU::Bias GetImuBiases();
+
 private:
 
     void SaveAtlas(int type);

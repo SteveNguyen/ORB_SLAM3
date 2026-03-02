@@ -1541,6 +1541,25 @@ float System::GetImageScale()
     return mpTracker->GetImageScale();
 }
 
+bool System::isImuInitialized()
+{
+    return mpAtlas->isImuInitialized();
+}
+
+Eigen::Matrix3d System::GetGravityRotation()
+{
+    unique_lock<mutex> lock(mpLocalMapper->mMutexImuInit);
+    return mpLocalMapper->mRwg;
+}
+
+IMU::Bias System::GetImuBiases()
+{
+    unique_lock<mutex> lock(mpLocalMapper->mMutexImuInit);
+    Eigen::Vector3d bg = mpLocalMapper->mbg;
+    Eigen::Vector3d ba = mpLocalMapper->mba;
+    return IMU::Bias(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
+}
+
 void System::SaveAtlas(int type){
     if(!mStrSaveAtlasToFile.empty())
     {
