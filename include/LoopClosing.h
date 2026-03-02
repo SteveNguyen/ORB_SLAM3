@@ -40,6 +40,7 @@ class Tracking;
 class LocalMapping;
 class KeyFrameDatabase;
 class Map;
+class Viewer;
 
 
 class LoopClosing

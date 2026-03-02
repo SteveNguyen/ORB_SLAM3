@@ -65,6 +65,10 @@ namespace ORB_SLAM3
 
         const int N = mvMatches12.size();
 
+        // Need at least 8 points for RANSAC
+        if(N < 8)
+            return false;
+
         // Indices for minimum set selection
         vector<size_t> vAllIndices;
         vAllIndices.reserve(N);
@@ -159,6 +163,10 @@ namespace ORB_SLAM3
         }
 
         const int N = mvMatches12.size();
+
+        // Need at least 8 points for RANSAC
+        if(N < 8)
+            return false;
 
         // Indices for minimum set selection
         vector<size_t> vAllIndices;

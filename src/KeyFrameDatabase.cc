@@ -710,7 +710,11 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
     {
         KeyFrame* pKFi = it->second;
         if(pKFi->isBad())
+        {
+            i++;
+            it++;
             continue;
+        }
 
         if(!spAlreadyAddedKF.count(pKFi))
         {

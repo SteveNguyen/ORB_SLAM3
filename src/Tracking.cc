@@ -3491,13 +3491,6 @@ void Tracking::Reset(bool bLocMap)
 {
     Verbose::PrintMess("System Reseting", Verbose::VERBOSITY_NORMAL);
 
-    if(mpViewer)
-    {
-        mpViewer->RequestStop();
-        while(!mpViewer->isStopped())
-            usleep(3000);
-    }
-
     // Reset Local Mapping
     if (!bLocMap)
     {
@@ -3542,21 +3535,12 @@ void Tracking::Reset(bool bLocMap)
     mpLastKeyFrame = static_cast<KeyFrame*>(NULL);
     mvIniMatches.clear();
 
-    if(mpViewer)
-        mpViewer->Release();
-
     Verbose::PrintMess("   End reseting! ", Verbose::VERBOSITY_NORMAL);
 }
 
 void Tracking::ResetActiveMap(bool bLocMap)
 {
     Verbose::PrintMess("Active map Reseting", Verbose::VERBOSITY_NORMAL);
-    if(mpViewer)
-    {
-        mpViewer->RequestStop();
-        while(!mpViewer->isStopped())
-            usleep(3000);
-    }
 
     Map* pMap = mpAtlas->GetCurrentMap();
 
@@ -3632,9 +3616,6 @@ void Tracking::ResetActiveMap(bool bLocMap)
     mvIniMatches.clear();
 
     mbVelocity = false;
-
-    if(mpViewer)
-        mpViewer->Release();
 
     Verbose::PrintMess("   End reseting! ", Verbose::VERBOSITY_NORMAL);
 }
