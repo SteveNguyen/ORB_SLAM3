@@ -1600,19 +1600,22 @@ void Tracking::Track()
                 {
                     Verbose::PrintMess("Lost for a short time", Verbose::VERBOSITY_NORMAL);
 
-                    bOK = true;
+                    bOK = false;
                     if((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))
-                    {   
+                    {
                         if(pCurrentMap->isImuInitialized()){
-                            PredictStateIMU();
-                        } else {
-                            bOK = false;
+                            bOK = PredictStateIMU();
+                        }
+                        // Also attempt relocalization (was missing in IMU mode)
+                        if(!bOK){
+                            bOK = Relocalization();
                         }
                         if (mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost)
                         {
-                            mState = LOST;
-                            Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
-                            bOK=false;
+                            if(!bOK){
+                                mState = LOST;
+                                Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
+                            }
                         }
                     }
                     else
@@ -1715,16 +1718,20 @@ void Tracking::Track()
                     Verbose::PrintMess("IMU. State LOST", Verbose::VERBOSITY_NORMAL);
                 bOK = Relocalization();
             } else if (mState == RECENTLY_LOST) {
+                bOK = false;
                 if(pCurrentMap->isImuInitialized()){
                     bOK = PredictStateIMU();
-                } else {
-                    bOK = false;
+                }
+                // Also attempt relocalization (IMU mode was missing this)
+                if(!bOK){
+                    bOK = Relocalization();
                 }
                 if (mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost)
                 {
-                    mState = LOST;
-                    Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
-                    bOK=false;
+                    if(!bOK){
+                        mState = LOST;
+                        Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
+                    }
                 }
             }
             else
@@ -1831,8 +1838,17 @@ void Tracking::Track()
                 Verbose::PrintMess("Track lost for less than one second...", Verbose::VERBOSITY_NORMAL);
                 if(!pCurrentMap->isImuInitialized() || !pCurrentMap->GetIniertialBA2())
                 {
-                    cout << "IMU is not or recently initialized. Reseting active map..." << endl;
-                    mpSystem->ResetActiveMap();
+                    // Don't reset a loaded map — it's the ground truth for localization.
+                    // Transition to RECENTLY_LOST and let relocalization handle recovery.
+                    if(!mbLoadedMap)
+                    {
+                        cout << "IMU is not or recently initialized. Reseting active map..." << endl;
+                        mpSystem->ResetActiveMap();
+                    }
+                    else
+                    {
+                        cout << "IMU not initialized but map is loaded, skipping reset" << endl;
+                    }
                 }
 
                 mState=RECENTLY_LOST;

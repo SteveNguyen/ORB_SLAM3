@@ -135,12 +135,23 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
             exit(-1);
         }
 
-        // mpAtlas->CreateNewMap();
-        // when loading a file from disk, we want to localize
+        // when loading a file from disk, we want to localize against the best map
         vector<Map*> map_vector = mpAtlas->GetAllMaps();
-        mpAtlas->ChangeMap(map_vector.at(0));
+
+        // Print map stats and pick the one with most keyframes
+        Map* pBestMap = map_vector.at(0);
+        for(Map* pMi : map_vector) {
+            long unsigned int nKFs = pMi->KeyFramesInMap();
+            long unsigned int nMPs = pMi->MapPointsInMap();
+            cout << "  Map " << pMi->GetId() << ": " << nKFs << " KFs, " << nMPs << " MPs" << endl;
+            if(nKFs > pBestMap->KeyFramesInMap())
+                pBestMap = pMi;
+        }
+        mpAtlas->ChangeMap(pBestMap);
         Map* pCurrentMap = mpAtlas->GetCurrentMap();
-        cout << "Atlas loaded!" << endl;
+        cout << "Atlas loaded! Using map " << pBestMap->GetId()
+             << " (" << pBestMap->KeyFramesInMap() << " KFs, "
+             << pBestMap->MapPointsInMap() << " MPs)" << endl;
     }
 
     if (mSensor==IMU_STEREO || mSensor==IMU_MONOCULAR || mSensor==IMU_RGBD)
@@ -1559,6 +1570,23 @@ IMU::Bias System::GetImuBiases()
     Eigen::Vector3d bg = mpLocalMapper->mbg;
     Eigen::Vector3d ba = mpLocalMapper->mba;
     return IMU::Bias(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
+}
+
+void System::SetDeterministic(bool flag) {
+    mbDeterministic = flag;
+}
+
+void System::WaitForLocalMapping() {
+    if (!mbDeterministic) return;
+    // In localization mode, LocalMapping is stopped and will never accept
+    // keyframes. Return immediately to avoid spinning forever.
+    if (mpLocalMapper->isStopped() || mpLocalMapper->isFinished()) return;
+    // Block until LocalMapping has drained its queue and is idle.
+    // AcceptKeyFrames()==true means the loop iteration is complete.
+    // KeyframesInQueue()==0 means no pending keyframes remain.
+    while (!mpLocalMapper->AcceptKeyFrames() || mpLocalMapper->KeyframesInQueue() > 0) {
+        usleep(500);
+    }
 }
 
 void System::SaveAtlas(int type){

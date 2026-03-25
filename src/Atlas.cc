@@ -342,6 +342,7 @@ void Atlas::PostLoad()
 
     mspMaps.clear();
     unsigned long int numKF = 0, numMP = 0;
+    cout << "Atlas::PostLoad: " << mvpBackupMaps.size() << " maps to restore" << endl;
     for(Map* pMi : mvpBackupMaps)
     {
         mspMaps.insert(pMi);
@@ -349,6 +350,7 @@ void Atlas::PostLoad()
         numKF += pMi->GetAllKeyFrames().size();
         numMP += pMi->GetAllMapPoints().size();
     }
+    cout << "Atlas::PostLoad: restored " << numKF << " KFs, " << numMP << " MPs across " << mspMaps.size() << " maps" << endl;
     mvpBackupMaps.clear();
 }
 

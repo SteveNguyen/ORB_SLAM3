@@ -199,6 +199,10 @@ public:
     float GetImageScale();
     bool isLoadingMap();
 
+    // Deterministic mode: Tracking waits for LocalMapping after each frame
+    void SetDeterministic(bool flag);
+    void WaitForLocalMapping();
+
     // Gravity rotation and IMU biases (valid after IMU initialization)
     bool isImuInitialized();
     Eigen::Matrix3d GetGravityRotation();
@@ -274,6 +278,8 @@ private:
     string mStrVocabularyFilePath;
 
     Settings* settings_;
+
+    bool mbDeterministic = false;
 };
 
 }// namespace ORB_SLAM

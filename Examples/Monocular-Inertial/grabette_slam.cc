@@ -152,6 +152,17 @@ int main(int argc, char **argv) {
   std::string output_biases;
   app.add_option("--output_biases", output_biases, "Output IMU biases (bax,bay,baz,bwx,bwy,bwz CSV)");
 
+  // Deterministic mode: wait for LocalMapping after each frame
+  bool deterministic = false;
+  app.add_flag("--deterministic", deterministic, "Wait for LocalMapping after each frame (deterministic)");
+
+  // Early failure detection: abort if lost rate exceeds threshold after warmup
+  float max_lost_pct = -1;
+  app.add_option("--max_lost_pct", max_lost_pct, "Max lost frame percentage before early abort (-1=disabled)");
+
+  int warmup_frames = 300;
+  app.add_option("--warmup_frames", warmup_frames, "Frames before checking lost rate");
+
   try {
     app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -194,6 +205,18 @@ int main(int argc, char **argv) {
     false, load_map, save_map,
     aruco_dict, init_tag_id, init_tag_size
   );
+
+  if (deterministic) {
+    SLAM.SetDeterministic(true);
+    cout << "Deterministic mode: Tracking will wait for LocalMapping" << endl;
+  }
+
+  // In localization mode (loaded map), disable LocalMapping entirely.
+  // This avoids the INIT_RELOCALIZE path which corrupts IMU timestamps.
+  if (!load_map.empty()) {
+    SLAM.ActivateLocalizationMode();
+    cout << "Localization-only mode: using loaded map" << endl;
+  }
 
   // Open video file
   cv::VideoCapture cap(input_video, cv::CAP_FFMPEG);
@@ -245,6 +268,13 @@ int main(int argc, char **argv) {
         last_imu_idx++;
     }
 
+    // In deterministic mode, wait for LocalMapping to be idle before processing
+    // the next frame. This ensures NeedNewKeyFrame() always sees an idle
+    // LocalMapper, so no keyframes are silently dropped.
+    if (deterministic) {
+        SLAM.WaitForLocalMapping();
+    }
+
     std::chrono::steady_clock::time_point t1 =
         std::chrono::steady_clock::now();
 
@@ -262,6 +292,20 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // Early failure detection: abort if lost rate exceeds threshold after warmup
+    if (max_lost_pct > 0 && frame_idx >= warmup_frames) {
+        float lost_pct = 100.0f * n_lost_frames / (frame_idx + 1);
+        if (lost_pct > max_lost_pct) {
+            std::cout << "Lost rate " << lost_pct << "% > " << max_lost_pct
+                      << "% after " << frame_idx << " frames. Aborting." << std::endl;
+            if (!output_trajectory_csv.empty()) {
+                SLAM.SaveTrajectoryCSV(output_trajectory_csv);
+            }
+            SLAM.Shutdown();
+            return 2;
+        }
+    }
+
     std::chrono::steady_clock::time_point t2 =
         std::chrono::steady_clock::now();
 
@@ -275,14 +319,14 @@ int main(int argc, char **argv) {
     }
   }
 
-  // Stop all threads
-  SLAM.Shutdown();
+  // Save all outputs BEFORE Shutdown() — Shutdown() waits for
+  // LocalMapping/LoopClosing threads which can hang. Saving first
+  // ensures we don't lose results if the process is killed on timeout.
 
   // Save camera trajectory
   if (!output_trajectory_tum.empty()) {
     SLAM.SaveTrajectoryTUM(output_trajectory_tum);
   }
-
   if (!output_trajectory_csv.empty()) {
     SLAM.SaveTrajectoryCSV(output_trajectory_csv);
   }
@@ -319,6 +363,9 @@ int main(int argc, char **argv) {
       cerr << "Warning: IMU never initialized, skipping bias output" << endl;
     }
   }
+
+  // Stop all threads (may hang — but all outputs are already saved)
+  SLAM.Shutdown();
 
   return 0;
 }
