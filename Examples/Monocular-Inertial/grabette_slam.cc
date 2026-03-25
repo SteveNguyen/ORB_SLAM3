@@ -163,6 +163,10 @@ int main(int argc, char **argv) {
   int warmup_frames = 300;
   app.add_option("--warmup_frames", warmup_frames, "Frames before checking lost rate");
 
+  int frame_skip = 1;
+  app.add_option("--frame_skip", frame_skip, "Process every Nth frame (1=all, 2=half rate)");
+
+
   try {
     app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -229,12 +233,14 @@ int main(int argc, char **argv) {
   int nImages = cap.get(cv::CAP_PROP_FRAME_COUNT);
   double fps = cap.get(cv::CAP_PROP_FPS);
   cout << "Video opened using backend " << cap.getBackendName() << endl;
-  cout << "There are " << nImages << " frames in total" << endl;
+  int total_frames = (nImages + frame_skip - 1) / frame_skip;
+  cout << "There are " << total_frames << " frames in total (frame_skip=" << frame_skip << ")" << endl;
   cout << "video FPS " << fps << endl;
 
   std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
   size_t last_imu_idx = 0;
   int n_lost_frames = 0;
+  int n_processed_frames = 0;
   for (int frame_idx=0; frame_idx < nImages; frame_idx++){
     double tframe = (double)frame_idx / fps;
 
@@ -245,6 +251,9 @@ int main(int argc, char **argv) {
       cout << "cap.read failed!" << endl;
       break;
     }
+
+    // skip frames that aren't on the Nth boundary (video reader already advanced)
+    if (frame_skip > 1 && frame_idx % frame_skip != 0) continue;
 
     // resize image and draw gripper mask
     im_track = im.clone();
@@ -280,6 +289,7 @@ int main(int argc, char **argv) {
 
     // Pass the image to the SLAM system
     auto result = SLAM.LocalizeMonocular(im_track, tframe, vImuMeas);
+    n_processed_frames++;
 
     // check lost frames
     if (! result.second){
@@ -293,11 +303,11 @@ int main(int argc, char **argv) {
     }
 
     // Early failure detection: abort if lost rate exceeds threshold after warmup
-    if (max_lost_pct > 0 && frame_idx >= warmup_frames) {
-        float lost_pct = 100.0f * n_lost_frames / (frame_idx + 1);
+    if (max_lost_pct > 0 && n_processed_frames >= warmup_frames) {
+        float lost_pct = 100.0f * n_lost_frames / n_processed_frames;
         if (lost_pct > max_lost_pct) {
             std::cout << "Lost rate " << lost_pct << "% > " << max_lost_pct
-                      << "% after " << frame_idx << " frames. Aborting." << std::endl;
+                      << "% after " << n_processed_frames << " frames. Aborting." << std::endl;
             if (!output_trajectory_csv.empty()) {
                 SLAM.SaveTrajectoryCSV(output_trajectory_csv);
             }
