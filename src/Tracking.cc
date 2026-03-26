@@ -1600,22 +1600,19 @@ void Tracking::Track()
                 {
                     Verbose::PrintMess("Lost for a short time", Verbose::VERBOSITY_NORMAL);
 
-                    bOK = false;
+                    bOK = true;
                     if((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))
                     {
                         if(pCurrentMap->isImuInitialized()){
-                            bOK = PredictStateIMU();
-                        }
-                        // Also attempt relocalization (was missing in IMU mode)
-                        if(!bOK){
-                            bOK = Relocalization();
+                            PredictStateIMU();
+                        } else {
+                            bOK = false;
                         }
                         if (mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost)
                         {
-                            if(!bOK){
-                                mState = LOST;
-                                Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
-                            }
+                            mState = LOST;
+                            Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
+                            bOK=false;
                         }
                     }
                     else
@@ -1718,20 +1715,16 @@ void Tracking::Track()
                     Verbose::PrintMess("IMU. State LOST", Verbose::VERBOSITY_NORMAL);
                 bOK = Relocalization();
             } else if (mState == RECENTLY_LOST) {
-                bOK = false;
                 if(pCurrentMap->isImuInitialized()){
                     bOK = PredictStateIMU();
-                }
-                // Also attempt relocalization (IMU mode was missing this)
-                if(!bOK){
-                    bOK = Relocalization();
+                } else {
+                    bOK = false;
                 }
                 if (mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost)
                 {
-                    if(!bOK){
-                        mState = LOST;
-                        Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
-                    }
+                    mState = LOST;
+                    Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
+                    bOK=false;
                 }
             }
             else
